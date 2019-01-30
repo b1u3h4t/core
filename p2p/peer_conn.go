@@ -5,14 +5,12 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
-	"io"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/DOSNetwork/core/log"
-	"github.com/DOSNetwork/core/p2p/dht"
 	"github.com/DOSNetwork/core/p2p/internal"
 	"github.com/DOSNetwork/core/sign/bls"
 	"github.com/golang/protobuf/proto"
@@ -22,6 +20,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 
+	"github.com/DOSNetwork/core/p2p/dht"
 	"github.com/dedis/kyber"
 )
 
@@ -113,93 +112,7 @@ func (p *PeerConn) SendMessage(msg proto.Message) (err error) {
 }
 
 func (p *PeerConn) receiveLoop() {
-	var err error
-	var buf []byte
-	var pa *internal.Package
-	var ptr *ptypes.DynamicAny
-
-	for {
-		if buf, err = p.receivePackage(); err != nil {
-			if err != io.EOF {
-				p.logger.Error(err)
-			} else {
-				p.logger.Event("EndEof")
-			}
-			break
-		}
-
-		if pa, ptr, err = p.decodePackage(buf); err != nil {
-			continue
-		}
-
-		if pa.GetRequestNonce() > 0 && pa.GetReplyFlag() {
-			if _state, exists := p.Requests.Load(pa.GetRequestNonce()); exists {
-				state := _state.(*RequestState)
-				select {
-				case state.data <- ptr.Message:
-				case <-state.closeSignal:
-				}
-			}
-			continue
-		}
-
-		switch content := ptr.Message.(type) {
-		//TODO:Refactor this to use request/reply and move out of this loop
-		case *internal.Hi:
-			if len(p.identity.Id) == 0 {
-				p.identity.Id = content.GetId()
-				p.identity.Address = content.GetAddress()
-				p.identity.PublicKey = content.GetPublicKey()
-				pub := suite.G2().Point()
-				if err = pub.UnmarshalBinary(content.GetPublicKey()); err != nil {
-					p.logger.Error(err)
-				}
-				p.pubKey = pub
-				p.logger.Debug("Conn Established")
-				response := &internal.Hi{
-					PublicKey: p.p2pnet.identity.PublicKey,
-					Address:   p.p2pnet.identity.Address,
-					Id:        p.p2pnet.identity.Id,
-				}
-				if err := p.Reply(pa.GetRequestNonce(), response); err != nil {
-					p.logger.Error(err)
-				}
-				if err := p.getShareKeyAndNonce(); err != nil {
-					p.logger.Error(err)
-				}
-				p.waitForHi <- true
-			}
-
-			//TODO:move this to routing
-		case *internal.LookupNodeRequest:
-			// Prepare response.
-			response := &internal.LookupNodeResponse{}
-
-			// Respond back with closest peers to a provided target.
-			for _, peerID := range p.p2pnet.routingTable.FindClosestPeers(internal.ID(*content.GetTarget()), dht.BucketSize) {
-				id := internal.ID(peerID)
-				response.Peers = append(response.Peers, &id)
-			}
-
-			if err := p.Reply(pa.GetRequestNonce(), response); err != nil {
-				p.logger.Error(err)
-			}
-			p.waitForLookup <- true
-		case *internal.Ping:
-			response := &internal.Pong{}
-			if err := p.Reply(pa.GetRequestNonce(), response); err != nil {
-				p.logger.Error(err)
-			}
-		case *internal.Pong:
-		default:
-			p.lastusedtime = time.Now()
-			msg := P2PMessage{Msg: *ptr, Sender: p.identity.Id, RequestNonce: pa.GetRequestNonce(), PeerConn: p}
-			go func() { p.rxMessage <- msg }()
-		}
-	}
-	close(p.waitForHi)
-	close(p.waitForLookup)
-	p.logger.Event("EndConn")
+	p.consumePLine(p.replyPline(p.decodePackagePline(p.receivePackage())))
 }
 
 func (p *PeerConn) End() {
@@ -225,85 +138,192 @@ func (p *PeerConn) EndWithoutDelete() {
 	p.logger.Event("EndWithoutDelete")
 }
 
-func (p *PeerConn) receivePackage() ([]byte, error) {
+func (p *PeerConn) receivePackage() <-chan []byte {
 	var err error
+	out := make(chan []byte)
+	go func() {
+		defer close(out)
+		for {
+			// Read until all header bytes have been read.
+			buffer := make([]byte, 4)
 
-	// Read until all header bytes have been read.
-	buffer := make([]byte, 4)
+			bytesRead, totalBytesRead := 0, 0
+			c := *p.conn
+			for totalBytesRead < 4 && err == nil {
+				if bytesRead, err = c.Read(buffer[totalBytesRead:]); err != nil {
+					p.logger.Error(err)
+					return
+				}
+				totalBytesRead += bytesRead
+			}
+			// Decode message size.
+			size := binary.BigEndian.Uint32(buffer)
+			if size == 0 {
+				err := errors.New("received an empty message from a peer")
+				p.logger.Error(err)
+				return
+			}
 
-	bytesRead, totalBytesRead := 0, 0
-	c := *p.conn
-	for totalBytesRead < 4 && err == nil {
-		if bytesRead, err = c.Read(buffer[totalBytesRead:]); err != nil {
-			return nil, err
+			// Read until all message bytes have been read.
+			buffer = make([]byte, size)
+
+			bytesRead, totalBytesRead = 0, 0
+
+			for totalBytesRead < int(size) && err == nil {
+				if bytesRead, err = c.Read(buffer[totalBytesRead:]); err != nil {
+					p.logger.Error(err)
+					return
+				}
+				totalBytesRead += bytesRead
+			}
+			select {
+			case <-p.ctx.Done():
+				return
+			case out <- buffer:
+			}
 		}
-		totalBytesRead += bytesRead
-	}
+	}()
+	return out
 
-	// Decode message size.
-	size := binary.BigEndian.Uint32(buffer)
-	if size == 0 {
-		err := errors.New("received an empty message from a peer")
-		return nil, err
-	}
-
-	// Read until all message bytes have been read.
-	buffer = make([]byte, size)
-
-	bytesRead, totalBytesRead = 0, 0
-
-	for totalBytesRead < int(size) && err == nil {
-		if bytesRead, err = c.Read(buffer[totalBytesRead:]); err != nil {
-			return nil, err
-		}
-		totalBytesRead += bytesRead
-	}
-
-	return buffer, nil
 }
 
-func (p *PeerConn) decodePackage(bytes []byte) (*internal.Package, *ptypes.DynamicAny, error) {
-	var content []byte
-	var err error
-	content = bytes
+func (p *PeerConn) decodePackagePline(in <-chan []byte) <-chan *internal.Package {
 
-	if content, err = p.decrypt(bytes); err != nil {
-		p.logger.Error(err)
-		return nil, nil, err
-	}
-	pa := new(internal.Package)
-	if err = proto.Unmarshal(content, pa); err != nil {
-		p.logger.Error(err)
-		return nil, nil, err
-	}
+	out := make(chan *internal.Package)
+	go func() {
+		var err error
+		for bytes := range in {
+			content := bytes
+			if content, err = p.decrypt(bytes); err != nil {
+				p.logger.Error(err)
+				continue
+			}
+			pa := new(internal.Package)
+			if err = proto.Unmarshal(content, pa); err != nil {
+				p.logger.Error(err)
+				continue
+			}
 
-	pub := suite.G2().Point()
-	if err = pub.UnmarshalBinary(pa.GetPubkey()); err != nil {
-		p.logger.Error(err)
-		return nil, nil, err
-	}
+			pub := suite.G2().Point()
+			if err = pub.UnmarshalBinary(pa.GetPubkey()); err != nil {
+				p.logger.Error(err)
+				continue
+			}
 
-	if err = bls.Verify(p.p2pnet.suite, pub, pa.GetAnything().Value, pa.GetSignature()); err != nil {
-		p.logger.Error(err)
-		return nil, nil, err
-	}
-
-	var ptr ptypes.DynamicAny
-	if err = ptypes.UnmarshalAny(pa.GetAnything(), &ptr); err != nil {
-		p.logger.Error(err)
-		return nil, nil, err
-	}
-
-	switch ptr.Message.(type) {
-	case *internal.Ping:
-	case *internal.Pong:
-	default:
-		atomic.AddUint64(&p.readWriteCount, 1)
-	}
-
-	return pa, &ptr, nil
+			if err = bls.Verify(p.p2pnet.suite, pub, pa.GetAnything().Value, pa.GetSignature()); err != nil {
+				p.logger.Error(err)
+				continue
+			}
+			out <- pa
+		}
+		close(out)
+	}()
+	return out
 }
 
+func (p *PeerConn) replyPline(in <-chan *internal.Package) <-chan *internal.Package {
+	out := make(chan *internal.Package)
+	go func() {
+		var err error
+		for pa := range in {
+			var ptr ptypes.DynamicAny
+			if err = ptypes.UnmarshalAny(pa.GetAnything(), &ptr); err != nil {
+				p.logger.Error(err)
+				continue
+			}
+
+			switch ptr.Message.(type) {
+			case *internal.Ping:
+			case *internal.Pong:
+			default:
+				atomic.AddUint64(&p.readWriteCount, 1)
+			}
+
+			if pa.GetRequestNonce() > 0 && pa.GetReplyFlag() {
+				if _state, exists := p.Requests.Load(pa.GetRequestNonce()); exists {
+					state := _state.(*RequestState)
+					select {
+					case state.data <- ptr.Message:
+					case <-state.closeSignal:
+					}
+				}
+				continue
+			}
+			out <- pa
+		}
+		close(out)
+	}()
+	return out
+}
+
+func (p *PeerConn) consumePLine(in <-chan *internal.Package) {
+	go func() {
+		var err error
+		for pa := range in {
+			var ptr ptypes.DynamicAny
+			if err = ptypes.UnmarshalAny(pa.GetAnything(), &ptr); err != nil {
+				p.logger.Error(err)
+				continue
+			}
+			switch content := ptr.Message.(type) {
+			//TODO:Refactor this to use request/reply and move out of this loop
+			case *internal.Hi:
+				if len(p.identity.Id) == 0 {
+					p.identity.Id = content.GetId()
+					p.identity.Address = content.GetAddress()
+					p.identity.PublicKey = content.GetPublicKey()
+					pub := suite.G2().Point()
+					if err = pub.UnmarshalBinary(content.GetPublicKey()); err != nil {
+						p.logger.Error(err)
+					}
+					p.pubKey = pub
+					p.logger.Debug("Conn Established")
+					response := &internal.Hi{
+						PublicKey: p.p2pnet.identity.PublicKey,
+						Address:   p.p2pnet.identity.Address,
+						Id:        p.p2pnet.identity.Id,
+					}
+					if err := p.Reply(pa.GetRequestNonce(), response); err != nil {
+						p.logger.Error(err)
+					}
+					if err := p.getShareKeyAndNonce(); err != nil {
+						p.logger.Error(err)
+					}
+					p.waitForHi <- true
+				}
+
+				//TODO:move this to routing
+			case *internal.LookupNodeRequest:
+				// Prepare response.
+				response := &internal.LookupNodeResponse{}
+
+				// Respond back with closest peers to a provided target.
+				for _, peerID := range p.p2pnet.routingTable.FindClosestPeers(internal.ID(*content.GetTarget()), dht.BucketSize) {
+					id := internal.ID(peerID)
+					response.Peers = append(response.Peers, &id)
+				}
+
+				if err := p.Reply(pa.GetRequestNonce(), response); err != nil {
+					p.logger.Error(err)
+				}
+				//p.waitForLookup <- true
+			case *internal.Ping:
+				response := &internal.Pong{}
+				if err := p.Reply(pa.GetRequestNonce(), response); err != nil {
+					p.logger.Error(err)
+				}
+			case *internal.Pong:
+			default:
+				p.lastusedtime = time.Now()
+				msg := P2PMessage{Msg: ptr, Sender: p.identity.Id, RequestNonce: pa.GetRequestNonce(), PeerConn: p}
+				go func() { p.rxMessage <- msg }()
+			}
+		}
+		close(p.waitForHi)
+		close(p.waitForLookup)
+		p.logger.Event("EndConn")
+	}()
+}
 func (p *PeerConn) SayHi() (err error) {
 	var response proto.Message
 	var content *internal.Hi

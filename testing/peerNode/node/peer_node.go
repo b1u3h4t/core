@@ -221,10 +221,10 @@ func (d *PeerNode) Init(bootStrapIp string, port, peerSize int, numMessages int,
 
 				if content.Ctype == internalMsg.Cmd_SIGNIN {
 					sender := string(msg.Sender)
-					go d.tStrategy.CheckResult(sender, content, d)
 					response := &internalMsg.Cmd{}
 					replyNonce := msg.RequestNonce
 					d.p.Reply([]byte(sender), replyNonce, response)
+					go d.tStrategy.CheckResult(sender, content, d)
 				}
 			case *dkg.ReqPublicKey:
 				d.dkgChan <- msg
