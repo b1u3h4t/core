@@ -139,7 +139,9 @@ func (n *P2P) Listen() (err error) {
 				} else {
 					n.logger.Event("AcceptShortConn")
 				}
-				n.routingTable.Update(peer.identity)
+				if peer != nil {
+					n.routingTable.Update(peer.identity)
+				}
 			}()
 		}
 	}()
@@ -306,7 +308,13 @@ func (n *P2P) connectTo(addr string, longConn bool) (peer *PeerConn, err error) 
 
 			peer, _ = n.peers.LoadOrStore(string(peer.identity.Id), peer)
 		}
-		n.routingTable.Update(peer.identity)
+		if peer != nil {
+			n.routingTable.Update(peer.identity)
+		} else {
+			err = errors.New("add peerconn to peermanager failed")
+			n.logger.Error(err)
+			continue
+		}
 		return
 	}
 	err = errors.New("Retry connection over the limit")
