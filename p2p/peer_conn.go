@@ -464,10 +464,12 @@ func (p *PeerConn) SendPackage(msg proto.Message) (err error) {
 
 	if _, err := p.rw.Write(bytes); err != nil {
 		p.logger.Error(err)
+		p.End()
 		return err
 	}
 	if err := p.rw.Flush(); err != nil {
 		p.logger.Error(err)
+		p.End()
 		return err
 	}
 
