@@ -252,14 +252,6 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:915c56ca290fa3512d4bdc6cc958e5da5c8be0f3f5ca87f98a5f520c122ed3c6"
-  name = "github.com/looplab/fsm"
-  packages = ["."]
-  pruneopts = ""
-  revision = "f980bdb68a8962823200eafe6c0aa99e917be0d7"
-
-[[projects]]
-  branch = "master"
   digest = "1:563cb49ec2d3da93eb4a0f49ba5d0aca4d3edd09e668d23d0f6f71df73a7e534"
   name = "github.com/oliveagle/jsonpath"
   packages = ["."]
@@ -339,6 +331,14 @@
   revision = "b001fa50d6b27f3f0bb175a87d0cb55426d0a0ae"
 
 [[projects]]
+  digest = "1:e85837cb04b78f61688c6eba93ea9d14f60d611e2aaf8319999b1a60d2dafbfa"
+  name = "github.com/urfave/cli"
+  packages = ["."]
+  pruneopts = ""
+  revision = "cfb38830724cc34fedffe9a2a29fb54fa9169cd1"
+  version = "v1.20.0"
+
+[[projects]]
   branch = "master"
   digest = "1:887074c37fcefc2f49b5ae9c6f9f36107341aec23185613d0e9f1ee81db7f94a"
   name = "golang.org/x/crypto"
@@ -348,6 +348,7 @@
     "pbkdf2",
     "ripemd160",
     "scrypt",
+    "sha3",
     "ssh/terminal",
   ]
   pruneopts = ""
@@ -431,6 +432,7 @@
     "github.com/dedis/kyber/xof/blake2xb",
     "github.com/dedis/protobuf",
     "github.com/ethereum/go-ethereum",
+    "github.com/ethereum/go-ethereum/accounts/abi",
     "github.com/ethereum/go-ethereum/accounts/abi/bind",
     "github.com/ethereum/go-ethereum/accounts/keystore",
     "github.com/ethereum/go-ethereum/common",
@@ -439,23 +441,27 @@
     "github.com/ethereum/go-ethereum/crypto/bn256",
     "github.com/ethereum/go-ethereum/crypto/sha3",
     "github.com/ethereum/go-ethereum/ethclient",
+    "github.com/ethereum/go-ethereum/event",
     "github.com/ethereum/go-ethereum/p2p/netutil",
+    "github.com/go-stack/stack",
     "github.com/golang/protobuf/proto",
     "github.com/golang/protobuf/ptypes",
     "github.com/golang/protobuf/ptypes/any",
+    "github.com/google/uuid",
     "github.com/gorilla/mux",
     "github.com/huin/goupnp",
     "github.com/huin/goupnp/dcps/internetgateway1",
     "github.com/huin/goupnp/dcps/internetgateway2",
     "github.com/jackpal/gateway",
     "github.com/jackpal/go-nat-pmp",
-    "github.com/looplab/fsm",
     "github.com/oliveagle/jsonpath",
     "github.com/sirupsen/logrus",
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/require",
+    "github.com/urfave/cli",
     "golang.org/x/crypto/blake2b",
     "golang.org/x/crypto/hkdf",
+    "golang.org/x/crypto/sha3",
     "golang.org/x/sys/cpu",
   ]
   solver-name = "gps-cdcl"

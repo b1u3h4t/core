@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"time"
-
 	"github.com/DOSNetwork/core/configuration"
 	"github.com/DOSNetwork/core/dosnode"
 	"github.com/DOSNetwork/core/log"
@@ -11,9 +9,40 @@ import (
 	"github.com/DOSNetwork/core/p2p"
 	"github.com/DOSNetwork/core/share/dkg/pedersen"
 	"github.com/DOSNetwork/core/suites"
+	"github.com/urfave/cli"
+	"os"
+	"sort"
+	"time"
 )
 
 // main
+
+func subAction(c *cli.Context) (err error) {
+	if c.NumFlags() == 0 {
+		cli.ShowSubcommandHelp(c)
+		return nil
+	}
+	return nil
+}
+
+func NewSubCommand() *cli.Command {
+	return &cli.Command{Name: "subCommand",
+		Usage:       "blockchain node subCommand",
+		Description: "for test.",
+		ArgsUsage:   "[args]",
+		Flags: []cli.Flag{
+			cli.IntFlag{
+				Name:  "level, l",
+				Usage: "log level 0-6",
+				Value: -1,
+			},
+		},
+		Action: subAction,
+		OnUsageError: func(c *cli.Context, err error, isSubcommand bool) error {
+			return cli.NewExitError("", 1)
+		},
+	}
+}
 func main() {
 	//Read Configuration
 	config := configuration.Config{}
@@ -84,6 +113,68 @@ func main() {
 	if err = dosclient.Start(); err != nil {
 		log.Fatal(err)
 	}
+
+	app := cli.NewApp()
+	app.Name = "DosNetwork"
+	app.Version = "1.0.0"
+	app.HelpName = "DosNetwork"
+	app.Usage = "command line tool for Dosnetwork"
+	app.UsageText = "DosNetwork [global options] command [command options] [args]"
+	app.HideHelp = false
+	app.HideVersion = false
+	//global options
+	app.Action = func(c *cli.Context) error {
+
+		appsession := c.String("APPSESSION")
+		if appsession != "" {
+			fmt.Println(appsession)
+		}
+		appname := c.String("APPNAME")
+		if appname != "" {
+			fmt.Println(appname)
+		}
+		//todo
+		return nil
+	}
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:  "APPSESSION",
+			Usage: "app version",
+		},
+		cli.StringFlag{
+			Name:  "APPNAME",
+			Usage: "APP NAME",
+		},
+		cli.StringFlag{
+			Name:  "LOGIP",
+			Usage: "",
+		},
+		cli.StringFlag{
+			Name:  "NODEROLE",
+			Usage: "",
+		},
+		cli.StringFlag{
+			Name:  "CHAINNODE",
+			Usage: "",
+		},
+		cli.StringFlag{
+			Name:  "BOOTSTRAPIP",
+			Usage: "",
+		},
+		cli.BoolFlag{
+			Name:  "RANDOMCONNECT",
+			Usage: "",
+		},
+	}
+	//commands
+	app.Commands = []cli.Command{
+		*NewSubCommand(),
+		//subcommand2,
+	}
+	sort.Sort(cli.CommandsByName(app.Commands))
+	sort.Sort(cli.FlagsByName(app.Flags))
+
+	app.Run(os.Args)
 
 	done := make(chan interface{})
 	<-done
