@@ -426,15 +426,15 @@ func (e *EthAdaptor) RegisterNewNode(ctx context.Context) (errc <-chan error) {
 	return
 }
 
-func (e *EthAdaptor) RandomNumberTimeOut(ctx context.Context) (errc <-chan error) {
-	defer logger.TimeTrack(time.Now(), "RandomNumberTimeOut", nil)
-	result := make(chan Reply)
-	for i, proxy := range e.proxies {
-		request := &Request{ctx, proxy, proxy.HandleTimeout, result}
-		errc = e.sendRequest(ctx, e.clients[i], errc, request, result)
-	}
-	return
-}
+//func (e *EthAdaptor) RandomNumberTimeOut(ctx context.Context) (errc <-chan error) {
+//	defer logger.TimeTrack(time.Now(), "RandomNumberTimeOut", nil)
+//	result := make(chan Reply)
+//	for i, proxy := range e.proxies {
+//		request := &Request{ctx, proxy, proxy.HandleTimeout, result}
+//		errc = e.sendRequest(ctx, e.clients[i], errc, request, result)
+//	}
+//	return
+//}
 
 func (e *EthAdaptor) RegisterGroupPubKey(ctx context.Context, IdWithPubKeys chan [5]*big.Int) (errc <-chan error) {
 	go func() {
@@ -515,40 +515,41 @@ func (e *EthAdaptor) DataReturn(ctx context.Context, signatures <-chan *vss.Sign
 	return errc
 }
 
-func (e *EthAdaptor) BootStrap() (errc <-chan error) {
-	ctx, _ := context.WithTimeout(context.Background(), 60*time.Second)
-	result := make(chan Reply)
-	for i, proxy := range e.proxies {
-		request := &Request{ctx, proxy, proxy.BootStrap, result}
-		errc = e.sendRequest(ctx, e.clients[i], errc, request, result)
-	}
-
-	return errc
-}
-
-func (e *EthAdaptor) ResetContract() (errc <-chan error) {
-	ctx, _ := context.WithTimeout(context.Background(), 60*time.Second)
-	defer logger.TimeTrack(time.Now(), "TestContract", nil)
-	result := make(chan Reply)
-	for i, proxy := range e.proxies {
-		request := &Request{ctx, proxy, proxy.ResetContract, result}
-		errc = e.sendRequest(ctx, e.clients[i], errc, request, result)
-	}
-
-	return errc
-}
-
-func (e *EthAdaptor) TestContract(ctx context.Context, p uint64) (errc <-chan error) {
-	defer logger.TimeTrack(time.Now(), "TestContract", nil)
-	result := make(chan Reply)
-	x := new(big.Int)
-	x.SetUint64(p)
-	for i, proxy := range e.proxies {
-		request := &ReqSetInt{ctx, proxy, x, proxy.TestCall, result}
-		errc = e.sendRequest(ctx, e.clients[i], errc, request, result)
-	}
-	return
-}
+//
+//func (e *EthAdaptor) BootStrap() (errc <-chan error) {
+//	ctx, _ := context.WithTimeout(context.Background(), 60*time.Second)
+//	result := make(chan Reply)
+//	for i, proxy := range e.proxies {
+//		request := &Request{ctx, proxy, proxy.BootStrap, result}
+//		errc = e.sendRequest(ctx, e.clients[i], errc, request, result)
+//	}
+//
+//	return errc
+//}
+//
+//func (e *EthAdaptor) ResetContract() (errc <-chan error) {
+//	ctx, _ := context.WithTimeout(context.Background(), 60*time.Second)
+//	defer logger.TimeTrack(time.Now(), "TestContract", nil)
+//	result := make(chan Reply)
+//	for i, proxy := range e.proxies {
+//		request := &Request{ctx, proxy, proxy.ResetContract, result}
+//		errc = e.sendRequest(ctx, e.clients[i], errc, request, result)
+//	}
+//
+//	return errc
+//}
+//
+//func (e *EthAdaptor) TestContract(ctx context.Context, p uint64) (errc <-chan error) {
+//	defer logger.TimeTrack(time.Now(), "TestContract", nil)
+//	result := make(chan Reply)
+//	x := new(big.Int)
+//	x.SetUint64(p)
+//	for i, proxy := range e.proxies {
+//		request := &ReqSetInt{ctx, proxy, x, proxy.TestCall, result}
+//		errc = e.sendRequest(ctx, e.clients[i], errc, request, result)
+//	}
+//	return
+//}
 
 func (e *EthAdaptor) SetGroupSize(ctx context.Context, size uint64) (errc <-chan error) {
 	defer logger.TimeTrack(time.Now(), "SetGroupSize", nil)
@@ -697,10 +698,10 @@ func (e *EthAdaptor) firstEvent(ctx context.Context, source chan interface{}) <-
 						bytes = append(bytes, content.Raw.Data...)
 						blkNum = content.BlockN
 						bytes = append(bytes, new(big.Int).SetUint64(blkNum).Bytes()...)
-					case *DOSProxyTestEvent:
-						bytes = append(bytes, content.Raw.Data...)
-						blkNum = content.BlockN
-						bytes = append(bytes, new(big.Int).SetUint64(blkNum).Bytes()...)
+						//case *DOSProxyTestEvent:
+						//	bytes = append(bytes, content.Raw.Data...)
+						//	blkNum = content.BlockN
+						//	bytes = append(bytes, new(big.Int).SetUint64(blkNum).Bytes()...)
 					}
 				} else {
 					return
@@ -781,13 +782,13 @@ func subscribeEvent(ctx context.Context, proxy *dosproxy.DOSProxy, subscribeType
 					return
 				case i := <-transitChan:
 					out <- &DOSProxyLogUpdateRandom{
-						LastRandomness:    i.LastRandomness,
-						DispatchedGroupId: i.DispatchedGroupId,
-						DispatchedGroup:   i.DispatchedGroup,
-						Tx:                i.Raw.TxHash.Hex(),
-						BlockN:            i.Raw.BlockNumber,
-						Removed:           i.Raw.Removed,
-						Raw:               i.Raw,
+						LastRandomness: i.LastRandomness,
+						//DispatchedGroupId: i.DispatchedGroupId,
+						DispatchedGroup: i.DispatchedGroup,
+						Tx:              i.Raw.TxHash.Hex(),
+						BlockN:          i.Raw.BlockNumber,
+						Removed:         i.Raw.Removed,
+						Raw:             i.Raw,
 					}
 				}
 			}
@@ -893,13 +894,13 @@ func subscribeEvent(ctx context.Context, proxy *dosproxy.DOSProxy, subscribeType
 						Message:     i.Message,
 						Signature:   i.Signature,
 						PubKey:      i.PubKey,
-						GroupId:     i.GroupId,
-						Pass:        i.Pass,
-						Version:     i.Version,
-						Tx:          i.Raw.TxHash.Hex(),
-						BlockN:      i.Raw.BlockNumber,
-						Removed:     i.Raw.Removed,
-						Raw:         i.Raw,
+						//GroupId:     i.GroupId,
+						Pass:    i.Pass,
+						Version: i.Version,
+						Tx:      i.Raw.TxHash.Hex(),
+						BlockN:  i.Raw.BlockNumber,
+						Removed: i.Raw.Removed,
+						Raw:     i.Raw,
 					}
 				}
 			}
@@ -953,10 +954,10 @@ func subscribeEvent(ctx context.Context, proxy *dosproxy.DOSProxy, subscribeType
 				case i := <-transitChan:
 					out <- &DOSProxyLogInsufficientWorkingGroup{
 						NumWorkingGroups: i.NumWorkingGroups,
-						NumPendingNodes:  i.NumPendingNodes,
-						Tx:               i.Raw.TxHash.Hex(),
-						BlockN:           i.Raw.BlockNumber,
-						Removed:          i.Raw.Removed,
+						//NumPendingNodes:  i.NumPendingNodes,
+						Tx:      i.Raw.TxHash.Hex(),
+						BlockN:  i.Raw.BlockNumber,
+						Removed: i.Raw.Removed,
 					}
 				}
 			}
@@ -981,9 +982,9 @@ func subscribeEvent(ctx context.Context, proxy *dosproxy.DOSProxy, subscribeType
 					return
 				case i := <-transitChan:
 					out <- &DOSProxyLogGroupingInitiated{
-						NumPendingNodes:   i.NumPendingNodes,
-						GroupSize:         i.GroupSize,
-						GroupingThreshold: i.GroupingThreshold,
+						NumPendingNodes:   i.PendingNodePool,
+						GroupSize:         i.Groupsize,
+						GroupingThreshold: i.Groupingthreshold,
 						Tx:                i.Raw.TxHash.Hex(),
 						BlockN:            i.Raw.BlockNumber,
 						Removed:           i.Raw.Removed,
@@ -991,35 +992,35 @@ func subscribeEvent(ctx context.Context, proxy *dosproxy.DOSProxy, subscribeType
 				}
 			}
 		}()
-	case SubscribeDOSProxyTestEvent:
-		go func() {
-			transitChan := make(chan *dosproxy.DOSProxyTestEvent)
-			defer close(transitChan)
-			defer close(errc)
-			defer close(out)
-			sub, err := proxy.DOSProxyFilterer.WatchTestEvent(opt, transitChan)
-			if err != nil {
-				return
-			}
-			for {
-				select {
-				case <-ctx.Done():
-					sub.Unsubscribe()
-					return
-				case err := <-sub.Err():
-					errc <- err
-					return
-				case i := <-transitChan:
-					out <- &DOSProxyTestEvent{
-						Parameter: i.Parameter,
-						Tx:        i.Raw.TxHash.Hex(),
-						BlockN:    i.Raw.BlockNumber,
-						Removed:   i.Raw.Removed,
-						Raw:       i.Raw,
-					}
-				}
-			}
-		}()
+		//case SubscribeDOSProxyTestEvent:
+		//	go func() {
+		//		transitChan := make(chan *dosproxy.DOSProxyTestEvent)
+		//		defer close(transitChan)
+		//		defer close(errc)
+		//		defer close(out)
+		//		sub, err := proxy.DOSProxyFilterer.WatchTestEvent(opt, transitChan)
+		//		if err != nil {
+		//			return
+		//		}
+		//		for {
+		//			select {
+		//			case <-ctx.Done():
+		//				sub.Unsubscribe()
+		//				return
+		//			case err := <-sub.Err():
+		//				errc <- err
+		//				return
+		//			case i := <-transitChan:
+		//				out <- &DOSProxyTestEvent{
+		//					Parameter: i.Parameter,
+		//					Tx:        i.Raw.TxHash.Hex(),
+		//					BlockN:    i.Raw.BlockNumber,
+		//					Removed:   i.Raw.Removed,
+		//					Raw:       i.Raw,
+		//				}
+		//			}
+		//		}
+		//	}()
 	}
 	return out, errc
 }
@@ -1106,13 +1107,13 @@ func (e *EthAdaptor) PollLogs(subscribeType int, logBlockDiff, preBlockBuf uint6
 						}
 						for logs.Next() {
 							sink <- &DOSProxyLogUpdateRandom{
-								LastRandomness:    logs.Event.LastRandomness,
-								DispatchedGroupId: logs.Event.DispatchedGroupId,
-								DispatchedGroup:   logs.Event.DispatchedGroup,
-								Tx:                logs.Event.Raw.TxHash.Hex(),
-								BlockN:            logs.Event.Raw.BlockNumber,
-								Removed:           logs.Event.Raw.Removed,
-								Raw:               logs.Event.Raw,
+								LastRandomness: logs.Event.LastRandomness,
+								//DispatchedGroupId: logs.Event.DispatchedGroupId,
+								DispatchedGroup: logs.Event.DispatchedGroup,
+								Tx:              logs.Event.Raw.TxHash.Hex(),
+								BlockN:          logs.Event.Raw.BlockNumber,
+								Removed:         logs.Event.Raw.Removed,
+								Raw:             logs.Event.Raw,
 							}
 						}
 					case SubscribeDOSProxyLogRequestUserRandom:
@@ -1180,13 +1181,13 @@ func (e *EthAdaptor) PollLogs(subscribeType int, logBlockDiff, preBlockBuf uint6
 								Message:     logs.Event.Message,
 								Signature:   logs.Event.Signature,
 								PubKey:      logs.Event.PubKey,
-								GroupId:     logs.Event.GroupId,
-								Pass:        logs.Event.Pass,
-								Version:     logs.Event.Version,
-								Tx:          logs.Event.Raw.TxHash.Hex(),
-								BlockN:      logs.Event.Raw.BlockNumber,
-								Removed:     logs.Event.Raw.Removed,
-								Raw:         logs.Event.Raw,
+								//GroupId:     logs.Event.GroupId,
+								Pass:    logs.Event.Pass,
+								Version: logs.Event.Version,
+								Tx:      logs.Event.Raw.TxHash.Hex(),
+								BlockN:  logs.Event.Raw.BlockNumber,
+								Removed: logs.Event.Raw.Removed,
+								Raw:     logs.Event.Raw,
 							}
 						}
 					case SubscribeDOSProxyLogInsufficientPendingNode:
@@ -1222,10 +1223,10 @@ func (e *EthAdaptor) PollLogs(subscribeType int, logBlockDiff, preBlockBuf uint6
 						for logs.Next() {
 							sink <- &DOSProxyLogInsufficientWorkingGroup{
 								NumWorkingGroups: logs.Event.NumWorkingGroups,
-								NumPendingNodes:  logs.Event.NumPendingNodes,
-								Tx:               logs.Event.Raw.TxHash.Hex(),
-								BlockN:           logs.Event.Raw.BlockNumber,
-								Removed:          logs.Event.Raw.Removed,
+								//NumPendingNodes:  logs.Event.NumPendingNodes,
+								Tx:      logs.Event.Raw.TxHash.Hex(),
+								BlockN:  logs.Event.Raw.BlockNumber,
+								Removed: logs.Event.Raw.Removed,
 							}
 						}
 					case SubscribeDOSProxyLogGroupingInitiated:
@@ -1241,34 +1242,34 @@ func (e *EthAdaptor) PollLogs(subscribeType int, logBlockDiff, preBlockBuf uint6
 
 						for logs.Next() {
 							sink <- &DOSProxyLogGroupingInitiated{
-								NumPendingNodes:   logs.Event.NumPendingNodes,
-								GroupSize:         logs.Event.GroupSize,
-								GroupingThreshold: logs.Event.GroupingThreshold,
+								NumPendingNodes:   logs.Event.PendingNodePool,
+								GroupSize:         logs.Event.Groupsize,
+								GroupingThreshold: logs.Event.Groupingthreshold,
 								Tx:                logs.Event.Raw.TxHash.Hex(),
 								BlockN:            logs.Event.Raw.BlockNumber,
 								Removed:           logs.Event.Raw.Removed,
 							}
 						}
-					case SubscribeDOSProxyTestEvent:
-						logs, err := proxyFilter.FilterTestEvent(&bind.FilterOpts{
-							Start:   targetBlockN,
-							End:     &targetBlockN,
-							Context: ctx,
-						})
-						if err != nil {
-							errc <- err
-							continue
-						}
-
-						for logs.Next() {
-							sink <- &DOSProxyTestEvent{
-								Parameter: logs.Event.Parameter,
-								Tx:        logs.Event.Raw.TxHash.Hex(),
-								BlockN:    logs.Event.Raw.BlockNumber,
-								Removed:   logs.Event.Raw.Removed,
-								Raw:       logs.Event.Raw,
-							}
-						}
+						//case SubscribeDOSProxyTestEvent:
+						//	logs, err := proxyFilter.FilterTestEvent(&bind.FilterOpts{
+						//		Start:   targetBlockN,
+						//		End:     &targetBlockN,
+						//		Context: ctx,
+						//	})
+						//	if err != nil {
+						//		errc <- err
+						//		continue
+						//	}
+						//
+						//	for logs.Next() {
+						//		sink <- &DOSProxyTestEvent{
+						//			Parameter: logs.Event.Parameter,
+						//			Tx:        logs.Event.Raw.TxHash.Hex(),
+						//			BlockN:    logs.Event.Raw.BlockNumber,
+						//			Removed:   logs.Event.Raw.Removed,
+						//			Raw:       logs.Event.Raw,
+						//		}
+						//	}
 					}
 				}
 				timer.Reset(LogCheckingInterval * time.Second)

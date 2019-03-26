@@ -50,13 +50,13 @@ type DOSProxyLogCallbackTriggeredFor struct {
 type DOSProxyLogRequestFromNonExistentUC struct{}
 
 type DOSProxyLogUpdateRandom struct {
-	LastRandomness    *big.Int
-	DispatchedGroupId *big.Int
-	DispatchedGroup   [4]*big.Int
-	Tx                string
-	BlockN            uint64
-	Removed           bool
-	Raw               types.Log
+	LastRandomness *big.Int
+	//DispatchedGroupId *big.Int
+	DispatchedGroup [4]*big.Int
+	Tx              string
+	BlockN          uint64
+	Removed         bool
+	Raw             types.Log
 }
 
 type DOSProxyLogValidationResult struct {
@@ -65,13 +65,13 @@ type DOSProxyLogValidationResult struct {
 	Message     []byte
 	Signature   [2]*big.Int
 	PubKey      [4]*big.Int
-	GroupId     *big.Int
-	Pass        bool
-	Version     uint8
-	Tx          string
-	BlockN      uint64
-	Removed     bool
-	Raw         types.Log
+	//GroupId     *big.Int
+	Pass    bool
+	Version uint8
+	Tx      string
+	BlockN  uint64
+	Removed bool
+	Raw     types.Log
 }
 
 type DOSProxyLogGroupingInitiated struct {
@@ -85,10 +85,10 @@ type DOSProxyLogGroupingInitiated struct {
 
 type DOSProxyLogInsufficientWorkingGroup struct {
 	NumWorkingGroups *big.Int
-	NumPendingNodes  *big.Int
-	Tx               string
-	BlockN           uint64
-	Removed          bool
+	//NumPendingNodes  *big.Int
+	Tx      string
+	BlockN  uint64
+	Removed bool
 }
 
 type DOSProxyLogInsufficientPendingNode struct {
@@ -155,10 +155,10 @@ type DOSProxyLogNoWorkingGroup struct {
 	Tx      string
 }
 
-type DOSProxyTestEvent struct {
-	Parameter *big.Int
-	Raw       types.Log
-	Removed   bool
-	BlockN    uint64
-	Tx        string
-}
+//type DOSProxyTestEvent struct {
+//	Parameter *big.Int
+//	Raw       types.Log
+//	Removed   bool
+//	BlockN    uint64
+//	Tx        string
+//}

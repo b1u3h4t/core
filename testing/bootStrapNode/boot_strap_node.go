@@ -59,19 +59,19 @@ func main() {
 	log.Init(id[:])
 	ctx, _ := context.WithCancel(context.Background())
 
-	var errcList []<-chan error
-	var eventList []<-chan interface{}
-	sink, errc := adaptor.PollLogs(onchain.SubscribeDOSProxyLogInsufficientPendingNode, 0, 0)
-	eventList = append(eventList, sink)
-	errcList = append(errcList, errc)
-	sink, errc = adaptor.PollLogs(onchain.SubscribeDOSProxyLogInsufficientWorkingGroup, 0, 0)
-	eventList = append(eventList, sink)
-	errcList = append(errcList, errc)
-	sink, errc = adaptor.PollLogs(onchain.SubscribeDOSProxyLogGroupingInitiated, 0, 0)
-	eventList = append(eventList, sink)
-	errcList = append(errcList, errc)
-	errc = onchain.MergeErrors(ctx, errcList...)
-	sink = onchain.MergeEvents(ctx, eventList...)
+	//var errcList []<-chan error
+	//var eventList []<-chan interface{}
+	//sink, errc := adaptor.PollLogs(onchain.SubscribeDOSProxyLogInsufficientPendingNode, 0, 0)
+	//eventList = append(eventList, sink)
+	//errcList = append(errcList, errc)
+	//sink, errc = adaptor.PollLogs(onchain.SubscribeDOSProxyLogInsufficientWorkingGroup, 0, 0)
+	//eventList = append(eventList, sink)
+	//errcList = append(errcList, errc)
+	//sink, errc = adaptor.PollLogs(onchain.SubscribeDOSProxyLogGroupingInitiated, 0, 0)
+	//eventList = append(eventList, sink)
+	//errcList = append(errcList, errc)
+	//errc = onchain.MergeErrors(ctx, errcList...)
+	//sink = onchain.MergeEvents(ctx, eventList...)
 
 	groupToPick, err := strconv.Atoi(os.Getenv(configuration.ENVGROUPTOPICK))
 	if err != nil {
@@ -84,48 +84,48 @@ func main() {
 	}
 	fmt.Println("groupSize: ", groupSize)
 
-	go func() {
-		for {
-			select {
-			case event := <-sink:
-				switch content := event.(type) {
-				case *onchain.DOSProxyLogInsufficientPendingNode:
-					fmt.Println("DOSProxyLogInsufficientPendingNode ", content.NumPendingNodes)
-				case *onchain.DOSProxyLogInsufficientWorkingGroup:
-					fmt.Println("DOSProxyLogInsufficientWorkingGroup ", content.NumPendingNodes)
-					if int(content.NumPendingNodes.Uint64()) == groupSize*(groupToPick+1)+1 {
-						errc = adaptor.BootStrap()
-						e := <-errc
-						fmt.Println("BootStrap done ", e)
-						if e != nil {
-							return
-						}
-					}
-				case *onchain.DOSProxyLogGroupingInitiated:
-					fmt.Println("DOSProxyLogInsufficientWorkingGroup ", content.NumPendingNodes)
-				}
-			case e, ok := <-errc:
-				if ok {
-					err = e
-					fmt.Println(err)
-				}
-			}
-		}
-	}()
-	fmt.Println("ResetContract")
-	errc = adaptor.ResetContract()
-	e := <-errc
-	fmt.Println("ResetContract", e)
-	if e != nil {
-		return
-	}
+	//go func() {
+	//	for {
+	//		select {
+	//		case event := <-sink:
+	//			switch content := event.(type) {
+	//			case *onchain.DOSProxyLogInsufficientPendingNode:
+	//				fmt.Println("DOSProxyLogInsufficientPendingNode ", content.NumPendingNodes)
+	//			case *onchain.DOSProxyLogInsufficientWorkingGroup:
+	//				fmt.Println("DOSProxyLogInsufficientWorkingGroup ", content.NumPendingNodes)
+	//				if int(content.NumPendingNodes.Uint64()) == groupSize*(groupToPick+1)+1 {
+	//					errc = adaptor.BootStrap()
+	//					e := <-errc
+	//					fmt.Println("BootStrap done ", e)
+	//					if e != nil {
+	//						return
+	//					}
+	//				}
+	//			case *onchain.DOSProxyLogGroupingInitiated:
+	//				fmt.Println("DOSProxyLogInsufficientWorkingGroup ", content.NumPendingNodes)
+	//			}
+	//		case e, ok := <-errc:
+	//			if ok {
+	//				err = e
+	//				fmt.Println(err)
+	//			}
+	//		}
+	//	}
+	//}()
+	//fmt.Println("ResetContract")
+	//errc = adaptor.ResetContract()
+	//e := <-errc
+	//fmt.Println("ResetContract", e)
+	//if e != nil {
+	//	return
+	//}
 	fmt.Println("SetGroupSize")
-	errc = adaptor.SetGroupSize(ctx, uint64(config.GetRandomGroupSize()))
+	errc := adaptor.SetGroupSize(ctx, uint64(config.GetRandomGroupSize()))
 	fmt.Println("SetGroupSize", <-errc)
 
 	//2)Build a p2p network
 	id = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
-	p, err := p2p.CreateP2PNetwork(id[:], config.Port)
+	p, err := p2p.CreateP2PNetwork(id[:], config.Port, p2p.SWIM)
 	if err != nil {
 		log.Fatal(err)
 	}

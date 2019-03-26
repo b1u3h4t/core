@@ -119,7 +119,7 @@ func NewDosNode(credentialPath, passphrase string) (dosNode *DosNode, err error)
 	fmt.Println("onchain adapter done")
 
 	//Build a p2p network
-	p, err := p2p.CreateP2PNetwork(id, port)
+	p, err := p2p.CreateP2PNetwork(id, port, p2p.SWIM)
 	if err != nil {
 		return
 	}
@@ -131,7 +131,7 @@ func NewDosNode(credentialPath, passphrase string) (dosNode *DosNode, err error)
 
 	//Bootstrapping p2p network
 	if role != "BootstrapNode" {
-		err = p.Join(bootstrapIp)
+		err = p.Join([]string{bootstrapIp})
 		if err != nil {
 			return
 		}
@@ -333,20 +333,20 @@ func (d *DosNode) listen() (err error) {
 					TODO: subscribe again and push err to errc,
 					TODO: otherwise possibly closed errc will keep consuming "select",
 				*/
-			case <-watchdog.C:
-				ids := d.dkg.GetAnyGroupIDs()
-				if len(ids) != 0 {
-					lastUpdatedBlock, err := d.chain.LastUpdatedBlock()
-					if err != nil {
-						logger.Error(err)
-						continue
-					}
-					diff := currentBlockNumber - lastUpdatedBlock
-					if diff > SYSRANDOMNTERVAL {
-						ctx, _ := context.WithCancel(context.Background())
-						d.chain.RandomNumberTimeOut(ctx)
-					}
-				}
+			//case <-watchdog.C:
+			//	ids := d.dkg.GetAnyGroupIDs()
+			//	if len(ids) != 0 {
+			//		lastUpdatedBlock, err := d.chain.LastUpdatedBlock()
+			//		if err != nil {
+			//			logger.Error(err)
+			//			continue
+			//		}
+			//		diff := currentBlockNumber - lastUpdatedBlock
+			//		if diff > SYSRANDOMNTERVAL {
+			//			ctx, _ := context.WithCancel(context.Background())
+			//			d.chain.RandomNumberTimeOut(ctx)
+			//		}
+			//	}
 			case requestID := <-d.cPipCancel:
 				_ = requestID
 			/*
@@ -451,17 +451,17 @@ func (d *DosNode) listen() (err error) {
 				}
 				f := map[string]interface{}{
 					"LastSystemRandomness": fmt.Sprintf("%x", content.LastRandomness),
-					"DispatchedGroupId":    fmt.Sprintf("%x", content.DispatchedGroupId.Bytes()),
-					"DispatchedGroup_1":    fmt.Sprintf("%x", content.DispatchedGroup[0].Bytes()),
-					"DispatchedGroup_2":    fmt.Sprintf("%x", content.DispatchedGroup[1].Bytes()),
-					"DispatchedGroup_3":    fmt.Sprintf("%x", content.DispatchedGroup[2].Bytes()),
-					"DispatchedGroup_4":    fmt.Sprintf("%x", content.DispatchedGroup[3].Bytes()),
-					"Removed":              content.Removed,
-					"IsMember":             d.isMember(content.DispatchedGroup),
-					"Tx":                   content.Tx,
-					"CurBlkN":              currentBlockNumber,
-					"BlockN":               content.BlockN,
-					"Time":                 time.Now()}
+					//"DispatchedGroupId":    fmt.Sprintf("%x", content.DispatchedGroupId.Bytes()),
+					"DispatchedGroup_1": fmt.Sprintf("%x", content.DispatchedGroup[0].Bytes()),
+					"DispatchedGroup_2": fmt.Sprintf("%x", content.DispatchedGroup[1].Bytes()),
+					"DispatchedGroup_3": fmt.Sprintf("%x", content.DispatchedGroup[2].Bytes()),
+					"DispatchedGroup_4": fmt.Sprintf("%x", content.DispatchedGroup[3].Bytes()),
+					"Removed":           content.Removed,
+					"IsMember":          d.isMember(content.DispatchedGroup),
+					"Tx":                content.Tx,
+					"CurBlkN":           currentBlockNumber,
+					"BlockN":            content.BlockN,
+					"Time":              time.Now()}
 				logger.Event("DOS_QuerySysRandom", f)
 				fmt.Println("EthLog : systemRandom", d.isMember(content.DispatchedGroup))
 
@@ -475,7 +475,16 @@ func (d *DosNode) listen() (err error) {
 						ctx, cancelFunc := context.WithCancel(context.Background())
 						valueCtx := context.WithValue(ctx, "RequestID", fmt.Sprintf("%x", content.LastRandomness))
 						pipeCancel[requestID] = cancelFunc
-						d.buildPipeline(valueCtx, content.DispatchedGroup, content.DispatchedGroupId, content.LastRandomness, content.LastRandomness, nil, "", "", uint32(onchain.TrafficSystemRandom))
+
+						var bytes []byte
+						bytes = append(bytes, content.DispatchedGroup[0].Bytes()...)
+						bytes = append(bytes, content.DispatchedGroup[1].Bytes()...)
+						bytes = append(bytes, content.DispatchedGroup[2].Bytes()...)
+						bytes = append(bytes, content.DispatchedGroup[3].Bytes()...)
+						bytes = append(bytes, content.LastRandomness.Bytes()...)
+						nHash := sha256.Sum256(bytes)
+
+						d.buildPipeline(valueCtx, content.DispatchedGroup, new(big.Int).SetBytes(nHash[:]), content.LastRandomness, content.LastRandomness, nil, "", "", uint32(onchain.TrafficSystemRandom))
 					}
 				}
 			case msg := <-chUsrRandom:
@@ -565,10 +574,10 @@ func (d *DosNode) listen() (err error) {
 						z := new(big.Int)
 						z.SetBytes(content.Message)
 						f := map[string]interface{}{
-							"RequestId":         fmt.Sprintf("%x", content.TrafficId),
-							"QueryResult":       string(content.Message),
-							"ValidationPass":    content.Pass,
-							"GroupId":           fmt.Sprintf("%x", content.GroupId),
+							"RequestId":      fmt.Sprintf("%x", content.TrafficId),
+							"QueryResult":    string(content.Message),
+							"ValidationPass": content.Pass,
+							//"GroupId":           fmt.Sprintf("%x", content.GroupId),
 							"DispatchedGroup_1": fmt.Sprintf("%x", content.PubKey[0].Bytes()),
 							"DispatchedGroup_2": fmt.Sprintf("%x", content.PubKey[1].Bytes()),
 							"DispatchedGroup_3": fmt.Sprintf("%x", content.PubKey[2].Bytes()),
@@ -583,10 +592,10 @@ func (d *DosNode) listen() (err error) {
 						z := new(big.Int)
 						z.SetBytes(content.Message)
 						f := map[string]interface{}{
-							"RequestId":         fmt.Sprintf("%x", content.TrafficId),
-							"GeneratedRandom":   fmt.Sprintf("%x", z),
-							"ValidationPass":    content.Pass,
-							"GroupId":           fmt.Sprintf("%x", content.GroupId),
+							"RequestId":       fmt.Sprintf("%x", content.TrafficId),
+							"GeneratedRandom": fmt.Sprintf("%x", z),
+							"ValidationPass":  content.Pass,
+							//"GroupId":           fmt.Sprintf("%x", content.GroupId),
 							"DispatchedGroup_1": fmt.Sprintf("%x", content.PubKey[0].Bytes()),
 							"DispatchedGroup_2": fmt.Sprintf("%x", content.PubKey[1].Bytes()),
 							"DispatchedGroup_3": fmt.Sprintf("%x", content.PubKey[2].Bytes()),
@@ -603,13 +612,13 @@ func (d *DosNode) listen() (err error) {
 						f := map[string]interface{}{
 							"RequestId":       fmt.Sprintf("%x", content.TrafficId),
 							"GeneratedRandom": fmt.Sprintf("0x%x", z),
-							"GroupId":         fmt.Sprintf("%x", content.GroupId),
-							"ValidationPass":  content.Pass,
-							"Removed":         content.Removed,
-							"Tx":              content.Tx,
-							"CurBlkN":         currentBlockNumber,
-							"BlockN":          content.BlockN,
-							"Time":            time.Now()}
+							//"GroupId":         fmt.Sprintf("%x", content.GroupId),
+							"ValidationPass": content.Pass,
+							"Removed":        content.Removed,
+							"Tx":             content.Tx,
+							"CurBlkN":        currentBlockNumber,
+							"BlockN":         content.BlockN,
+							"Time":           time.Now()}
 						logger.Event("DOS_SysRandomResult", f)
 					}
 				}
