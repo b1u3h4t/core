@@ -133,6 +133,7 @@ func NewDosNode(credentialPath, passphrase string) (dosNode *DosNode, err error)
 	}
 
 	//Bootstrapping p2p network
+	fmt.Println("Join :", bootstrapIp)
 	err = p.Join([]string{bootstrapIp})
 	if err != nil {
 		fmt.Println("Join ", err)
@@ -177,6 +178,8 @@ func (d *DosNode) Start() (err error) {
 	mux.HandleFunc("/groupSize", d.groupSize)
 	mux.HandleFunc("/proxy", d.proxy)
 	mux.HandleFunc("/guardian", d.guardian)
+	mux.HandleFunc("/p2p", d.p2p)
+
 	http.ListenAndServe("localhost:8080", mux)
 	return
 }
@@ -311,10 +314,12 @@ func (d *DosNode) listen() (err error) {
 	errcList = append(errcList, errc)
 	noworkinggroup, errc := d.chain.SubscribeEvent(onchain.SubscribeDOSProxyLogNoWorkingGroup)
 	errcList = append(errcList, errc)
-	chInsufficientWG, errc := d.chain.SubscribeEvent(onchain.SubscribeDOSProxyLogInsufficientWorkingGroup)
-	errcList = append(errcList, errc)
-	groupInitated, errc := d.chain.SubscribeEvent(onchain.SubscribeDOSProxyLogGroupingInitiated)
-	errcList = append(errcList, errc)
+	/*
+		chInsufficientWG, errc := d.chain.SubscribeEvent(onchain.SubscribeDOSProxyLogInsufficientWorkingGroup)
+		errcList = append(errcList, errc)
+		groupInitated, errc := d.chain.SubscribeEvent(onchain.SubscribeDOSProxyLogGroupingInitiated)
+		errcList = append(errcList, errc)
+	*/
 	commitRevealStart, errc := d.chain.PollLogs(onchain.SubscribeDOSCommitRevealLogStartCommitReveal, 0, 0)
 	errcList = append(errcList, errc)
 
@@ -333,33 +338,46 @@ func (d *DosNode) listen() (err error) {
 		for {
 
 			select {
-			case _, ok := <-chInsufficientWG:
-				if !ok {
-					continue
-				}
-				if d.dkg.GetGroupNumber() == 0 {
-					f := map[string]interface{}{
-						"Time": time.Now()}
-					logger.Event("InsufficientWorkingGroup", f)
-					d.chain.SignalGroupFormation(context.Background())
-				}
-			case msg, ok := <-groupInitated:
-				if !ok {
-					continue
-				}
-				content, ok := msg.(*onchain.DOSProxyLogGroupingInitiated)
-				if !ok {
-					log.Error(err)
-					continue
-				}
-				if d.dkg.GetGroupNumber() == 0 {
-					f := map[string]interface{}{
-						"NumPendingNodes":   content.NumPendingNodes,
-						"GroupSize":         content.GroupSize,
-						"GroupingThreshold": content.GroupingThreshold,
-						"Time":              time.Now()}
-					logger.Event("GroupingInitiated", f)
-				}
+			/*
+				case _, ok := <-chInsufficientWG:
+					if !ok {
+						continue
+					}
+
+					if d.dkg.GetGroupNumber() == 0 {
+						currentBlockNumber, err := d.chain.CurrentBlock()
+						if err != nil {
+							logger.Error(err)
+						}
+						commitRevealTargetBlk, err := d.chain.CommitRevealTargetBlk()
+						if err != nil {
+							continue
+						}
+						if currentBlockNumber > commitRevealTargetBlk {
+							f := map[string]interface{}{
+								"Time": time.Now()}
+							logger.Event("InsufficientWorkingGroup", f)
+							d.chain.SignalGroupFormation(context.Background())
+						}
+					}
+
+				case msg, ok := <-groupInitated:
+					if !ok {
+						continue
+					}
+					content, ok := msg.(*onchain.DOSProxyLogGroupingInitiated)
+					if !ok {
+						log.Error(err)
+						continue
+					}
+					if d.dkg.GetGroupNumber() == 0 {
+						f := map[string]interface{}{
+							"NumPendingNodes":   content.NumPendingNodes,
+							"GroupSize":         content.GroupSize,
+							"GroupingThreshold": content.GroupingThreshold,
+							"Time":              time.Now()}
+						logger.Event("GroupingInitiated", f)
+					}*/
 			case msg, ok := <-commitRevealStart:
 				if !ok {
 					continue
@@ -425,6 +443,19 @@ func (d *DosNode) listen() (err error) {
 						time.Sleep(15 * time.Second)
 					}
 					d.chain.Reveal(context.Background(), sec)
+					for {
+						cur, err := d.chain.CurrentBlock()
+						if err != nil {
+							logger.Error(err)
+							return
+						}
+						fmt.Println("Waiting for random ", cur, blkNumUint)
+						if cur > blkNumUint {
+							break
+						}
+						time.Sleep(15 * time.Second)
+					}
+					d.chain.SignalGroupFormation(context.Background())
 				}(content.TargetBlkNum.Uint64(), content.CommitDuration.Uint64(), content.RevealDuration.Uint64())
 
 			case err, ok := <-errc:
