@@ -93,6 +93,11 @@ docker-aws: docker-bootnode docker-dosnode docker-usernode docker-banker
 	docker push dosnetwork/bootstrap:latest
 	docker push dosnetwork/dosnode:latest
 
+docker-aws-peernode: docker-peernode
+	docker image prune -f
+	docker tag peernode dosnetwork/peernode:latest
+	docker push dosnetwork/peernode:latest
+
 update-dosenv:
 	-docker rmi dosenv
 	-docker rmi dosnetwork/dosenv

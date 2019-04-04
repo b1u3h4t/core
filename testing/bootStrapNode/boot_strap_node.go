@@ -49,7 +49,7 @@ func main() {
 	chainConfig := config.GetChainConfig()
 	fmt.Println("chainConfig.RemoteNodeAddressPool", chainConfig.RemoteNodeAddressPool)
 	addressToDistribute = chainConfig.RemoteNodeAddressPool[1:]
-	adaptor, err = onchain.NewProxyAdapter(config.GetCurrentType(), credentialPath, passphrase, chainConfig.DOSProxyAddress, chainConfig.RemoteNodeAddressPool)
+	adaptor, err = onchain.NewProxyAdapter(config.GetCurrentType(), credentialPath, passphrase, chainConfig.DOSProxyAddress, chainConfig.DOSCommitReveal, chainConfig.RemoteNodeAddressPool)
 	if err != nil {
 		fmt.Println(err)
 		return

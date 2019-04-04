@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"golang.org/x/crypto/sha3"
 	"io/ioutil"
 	"math/big"
 	"net/http"
@@ -16,7 +17,6 @@ import (
 	"unsafe"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/crypto/sha3"
 
 	"github.com/DOSNetwork/core/configuration"
 	"github.com/DOSNetwork/core/log"
@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	WATCHDOGINTERVAL = 20 //In minutes
-	SYSRANDOMNTERVAL = 5  //In block numbers
+	WATCHDOGINTERVAL = 1 //In minutes
+	SYSRANDOMNTERVAL = 5 //In block numbers
 )
 
 var logger log.Logger
@@ -78,7 +78,8 @@ func NewDosNode(credentialPath, passphrase string) (dosNode *DosNode, err error)
 		var rspBytes []byte
 		var resp *http.Response
 		ip := config.BootStrapIp
-		tServer := "http://" + ip + ":8080/getCredential"
+		tServer := "http://" + strings.Split(ip, ":")[0] + ":8080/getCredential"
+		fmt.Println(tServer)
 		resp, err = http.Get(tServer)
 		for err != nil {
 			time.Sleep(1 * time.Second)
@@ -111,6 +112,7 @@ func NewDosNode(credentialPath, passphrase string) (dosNode *DosNode, err error)
 
 	//Set up an onchain adapter
 	chainConn, err := onchain.NewProxyAdapter(config.GetCurrentType(), credentialPath, passphrase, chainConfig.DOSProxyAddress, chainConfig.DOSCommitReveal, chainConfig.RemoteNodeAddressPool)
+
 	if err != nil {
 		if err.Error() != "No any working eth client for event tracking" {
 			fmt.Println("NewDosNode failed ", err)
@@ -409,7 +411,7 @@ func (d *DosNode) listen() (err error) {
 						return
 					}
 
-					h := sha3.NewKeccak256()
+					h := sha3.NewLegacyKeccak256()
 					h.Write(abi.U256(sec))
 					b := h.Sum(nil)
 					hash = byte32(b)
